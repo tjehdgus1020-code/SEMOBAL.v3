@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>풋살 팀 편성 & 시즌 기록실</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.92); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop { animation: popIn 0.22s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-3 sm:p-5">
+
+  <div class="w-full max-w-lg bg-slate-900 rounded-2xl shadow-2xl p-4 sm:p-6 border border-slate-800 my-auto">
+
+    <!-- 상단 헤더 & 네비게이션 탭 -->
+    <div class="flex flex-col gap-3 mb-5 border-b border-slate-800 pb-4">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚽</span>
+          <div>
+            <h1 class="text-lg font-extrabold text-emerald-400 leading-tight">풋살 팀 편성 & 기록실</h1>
+            <p class="text-[11px] text-slate-400">그룹 비공개 랜덤 배정 · 시즌 개근/다승 집계</p>
+          </div>
+        </div>
+        <span id="dbStatusBadge" class="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+          서버 연결 중...
+        </span>
+      </div>
+
+      <!-- 3단 메뉴 탭 -->
+      <div class="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button id="navPlayBtn" class="py-2 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">
+          ⚽ 팀 뽑기
+        </button>
+        <button id="navStatsBtn" class="py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+          🏆 기록·순위
+        </button>
+        <button id="navAdminBtn" class="py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+          ⚙️ 관리자
+        </button>
+      </div>
+    </div>
+
+    <!-- [화면 1] 회원 로그인 (이름 선택 그리드) & 실시간 팀 현황 -->
+    <div id="loginView" class="space-y-6">
+      <div>
+        <div class="flex justify-between items-center mb-2.5">
+          <h2 class="text-sm font-bold text-slate-200">👤 본인 이름을 터치하세요</h2>
+          <span id="totalAttendeeBadge" class="text-[11px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">총 0명</span>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">명단은 무작위로 배열되며, 이름 선택 후 휴대폰 뒷자리 4자리를 입력합니다.</p>
+        <div id="rosterGrid" class="grid grid-cols-3 gap-2"></div>
+      </div>
+
+      <div id="dashboardOnLogin"></div>
+    </div>
+
+    <!-- [화면 2] 회원 공 뽑기방 -->
+    <div id="drawView" class="hidden space-y-5">
+      <div class="flex justify-between items-center bg-slate-950/80 px-3.5 py-2.5 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md font-semibold">🔒 그룹 비공개</span>
+          <span id="drawUserName" class="font-bold text-sm text-white"></span>
+        </div>
+        <button id="logoutBtn" class="text-xs text-slate-400 hover:text-white underline">처음으로</button>
+      </div>
+
+      <div class="text-center py-2">
+        <h2 id="drawInstruction" class="text-base font-bold text-slate-100">3개의 공 중 하나를 선택하세요</h2>
+        <p class="text-xs text-slate-400 mt-1">다른 그룹원이 먼저 선택한 공은 잠금 처리됩니다.</p>
+      </div>
+
+      <div id="ballsContainer" class="grid grid-cols-3 gap-3 my-2"></div>
+
+      <div id="myResultBanner" class="hidden text-center p-4 rounded-2xl bg-slate-950 border border-slate-800 animate-pop">
+        <p class="text-xs text-slate-400">오늘 배정된 팀</p>
+        <p id="myResultTeam" class="text-2xl font-black mt-1"></p>
+      </div>
+
+      <div id="dashboardOnDraw" class="pt-2"></div>
+    </div>
+
+    <!-- [화면 3] 기간별 참석(개근왕) & 승리(다승왕) 통계 화면 -->
+    <div id="statsView" class="hidden space-y-5">
+      <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+        <div>
+          <span class="text-[11px] font-bold text-emerald-400 block">📅 공식 시즌 집계 기간</span>
+          <span id="publicStatsPeriodText" class="text-xs font-extrabold text-white mt-0.5 block"></span>
+        </div>
+        <span id="statsMatchCountText" class="text-[11px] text-slate-300 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg font-semibold">총 0경기</span>
+      </div>
+
+      <!-- 개근왕 & 다승왕 하이라이트 -->
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="bg-gradient-to-br from-amber-500/15 to-slate-950 border border-amber-500/30 rounded-xl p-3">
+          <div class="text-xs font-extrabold text-amber-400 mb-2">👑 개근왕 TOP 3</div>
+          <div id="attendanceTopList" class="space-y-1.5 text-xs"></div>
+        </div>
+        <div class="bg-gradient-to-br from-emerald-500/15 to-slate-950 border border-emerald-500/30 rounded-xl p-3">
+          <div class="text-xs font-extrabold text-emerald-400 mb-2">🏅 다승왕 TOP 3</div>
+          <div id="winsTopList" class="space-y-1.5 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- 전체 회원 누적 순위표 -->
+      <div class="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+        <div class="px-3.5 py-2.5 border-b border-slate-800 flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-200">📊 회원별 상세 기록</span>
+          <select id="statsSortSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300">
+            <option value="wins">다승순 정렬</option>
+            <option value="attendance">참석순 정렬</option>
+            <option value="rate">승률순 정렬</option>
+          </select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2 px-3">순위</th>
+                <th class="py-2 px-2">이름</th>
+                <th class="py-2 px-2 text-center">참석</th>
+                <th class="py-2 px-2 text-center">승리</th>
+                <th class="py-2 px-3 text-right">승률</th>
+              </tr>
+            </thead>
+            <tbody id="statsTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 날짜별 경기 이력 (회원 열람용) -->
+      <div class="bg-slate-950 rounded-xl border border-slate-800 p-3.5">
+        <h3 class="text-xs font-bold text-slate-300 mb-2.5">🗓️ 기간 내 경기 결과 이력</h3>
+        <div id="matchHistoryList" class="space-y-2 max-h-48 overflow-y-auto text-xs"></div>
+      </div>
+    </div>
+
+    <!-- [화면 4] 관리자 모드 -->
+    <div id="adminView" class="hidden space-y-5">
+      <div id="adminAuthBox" class="bg-slate-950 p-5 rounded-xl border border-slate-800 text-center space-y-3">
+        <p class="text-sm font-bold text-slate-200">🔐 관리자 비밀번호(PW) 인증</p>
+        <p class="text-xs text-slate-400">초기 비밀번호는 <b>admin1234</b> 입니다. (문자 포함 8자리 이상)</p>
+        <input type="password" id="adminPinInput" placeholder="문자 포함 8자리 이상 입력"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-center tracking-wider focus:outline-none focus:border-emerald-400" />
+        <button id="adminAuthBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl">
+          관리자 패널 열기
+        </button>
+      </div>
+
+      <div id="adminPanel" class="hidden space-y-6">
+        <!-- 0. 관리자 비밀번호 변경 & 회원 공개 기록 조회 기간 설정 -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-4">
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-slate-200">🔑 관리자 비밀번호(PW) 변경</h3>
+            <div class="flex gap-2">
+              <input type="text" id="newAdminPwInput" placeholder="영문+숫자 포함 8자리 이상"
+                class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400" />
+              <button id="saveAdminPwBtn" type="button"
+                class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">
+                PW 변경
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-500">* 보안을 위해 영문과 숫자를 반드시 포함하여 8자리 이상으로 설정하세요.</p>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 space-y-2.5">
+            <div class="flex justify-between items-center">
+              <h3 class="text-xs font-bold text-emerald-400">📅 시즌 기록 조회 기간 설정 (회원 화면 적용)</h3>
+              <div class="flex gap-1">
+                <button type="button" data-range="1m" class="rangePresetBtn text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-300">1개월</button>
+                <button type="button" data-range="3m" class="rangePresetBtn text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-300">3개월</button>
+                <button type="button" data-range="all" class="rangePresetBtn text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-slate-300">전체</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">시작일</label>
+                <input type="date" id="adminStatsStartDate" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">종료일</label>
+                <input type="date" id="adminStatsEndDate" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+              </div>
+            </div>
+            <button id="saveStatsPeriodBtn" type="button"
+              class="w-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold py-2 rounded-lg text-xs transition">
+              ✅ 조회 기간 저장 및 적용
+            </button>
+          </div>
+        </div>
+
+        <!-- 1. 오늘 경기 승리 팀 확정 -->
+        <div class="bg-gradient-to-br from-indigo-950/60 to-slate-950 p-4 rounded-xl border border-indigo-500/40 space-y-3">
+          <h3 class="text-sm font-extrabold text-indigo-300">🏅 경기 종료 · 승리 팀 확정 및 기록 누적</h3>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            승리 팀을 선택하면 현재 등록된 참석자 전원에게 <b>참석 1회</b>가, 승리 팀 멤버에게는 <b>1승</b>이 누적 저장됩니다.
+          </p>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">경기 날짜:</label>
+            <input type="date" id="matchDateInput" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <button type="button" data-win="RED" class="recordWinBtn bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-bold py-2.5 rounded-xl text-xs transition">
+              🔴 빨강팀 승리
+            </button>
+            <button type="button" data-win="BLUE" class="recordWinBtn bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 font-bold py-2.5 rounded-xl text-xs transition">
+              🔵 파랑팀 승리
+            </button>
+            <button type="button" data-win="GREEN" class="recordWinBtn bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 font-bold py-2.5 rounded-xl text-xs transition">
+              🟢 초록팀 승리
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. 미참여자 일괄 자동 배정 -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+          <h3 class="text-xs font-bold text-slate-300">⚡ 당일 현장 운영</h3>
+          <button id="autoAssignBtn" type="button"
+            class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 rounded-xl text-xs transition">
+            ⚡ 미참여자 일괄 자동 배정 (기존 뽑기 결과 유지)
+          </button>
+        </div>
+
+        <!-- 3. 참석자 명단 및 그룹 설정 (3칸 분리 입력 UI) -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold text-emerald-400">📋 참석자 명단 및 그룹 설정</h3>
+            <button id="addRowBtn" type="button" class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-1 rounded-lg font-semibold">
+              + 인원 행 추가
+            </button>
+          </div>
+
+          <div class="grid grid-cols-12 gap-1.5 text-[11px] text-slate-400 px-1">
+            <div class="col-span-4">그룹명</div>
+            <div class="col-span-4">이름</div>
+            <div class="col-span-3">뒷자리 4자리</div>
+            <div class="col-span-1 text-center">삭제</div>
+          </div>
+
+          <div id="attendeeRowsContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+
+          <button id="saveSetupBtn" type="button"
+            class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition">
+            🎲 새 게임 생성 및 공 무작위 섞기
+          </button>
+        </div>
+
+        <!-- 4. 현재 등록 인원 관리 (당일 불참 삭제) -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+          <h3 class="text-xs font-bold text-slate-300">👥 현재 등록 인원 현황 (당일 불참 삭제)</h3>
+          <div id="adminRosterList" class="space-y-1.5 max-h-52 overflow-y-auto text-xs"></div>
+        </div>
+
+        <!-- 5. 경기 결과 이력 관리 (관리자 전용) -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold text-indigo-300">🗓️ 누적 경기 결과 이력 관리</h3>
+            <span id="adminHistoryCount" class="text-[11px] text-slate-400">총 0경기</span>
+          </div>
+          <p class="text-[11px] text-slate-400">잘못 저장된 날짜의 경기 기록을 삭제할 수 있습니다.</p>
+          <div id="adminHistoryList" class="space-y-2 max-h-60 overflow-y-auto text-xs"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 본인 확인 모달 -->
+  <div id="authModal" class="hidden fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-pop shadow-2xl">
+      <div class="text-center">
+        <span class="text-xs bg-emerald-500/15 text-emerald-400 px-2.5 py-0.5 rounded-full font-bold">본인 확인</span>
+        <h3 class="text-lg font-extrabold mt-2"><span id="modalUserName" class="text-emerald-400"></span>님 입장</h3>
+        <p class="text-xs text-slate-400 mt-1">휴대폰 번호 뒷자리 4자리를 입력하세요.</p>
+      </div>
+
+      <input type="password" id="modalPinInput" inputmode="numeric" maxlength="4" placeholder="••••"
+        class="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 text-center text-2xl tracking-[0.5em] font-bold focus:outline-none focus:border-emerald-400" />
+      <p id="modalErrorMsg" class="hidden text-xs text-rose-400 text-center"></p>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button id="modalCancelBtn" type="button" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">
+          취소
+        </button>
+        <button id="modalConfirmBtn" type="button" class="py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-extrabold text-slate-950">
+          확인 후 입장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 -->
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white border border-slate-600 px-4 py-2.5 rounded-full text-xs font-bold shadow-xl z-50"></div>
+
+  <!-- Firebase Realtime Database 연동 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, update, remove, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // =========================================================================
+    // [필수 수정] 아래 firebaseConfig 부분을 본인의 Firebase 설정값으로 교체하세요!
+    // =========================================================================
+    const firebaseConfig = {
+  apiKey: "AIzaSyC8M96G0z2OybYSHIeyz0umZHZnschzGFA",
+  authDomain: "semobal-a7559.firebaseapp.com",
+  databaseURL: "https://semobal-a7559-default-rtdb.firebaseio.com",
+  projectId: "semobal-a7559",
+  storageBucket: "semobal-a7559.firebasestorage.app",
+  messagingSenderId: "959181715054",
+  appId: "1:959181715054:web:d2326a5bf01eed146e987f",
+  measurementId: "G-ZYKKVCEZ1V"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const TEAM_COLORS = {
+      RED: { label: "🔴 빨강팀", short: "빨강팀", bg: "bg-rose-500", text: "text-rose-400", border: "border-rose-500/50", badge: "bg-rose-500/20 text-rose-300" },
+      BLUE: { label: "🔵 파랑팀", short: "파랑팀", bg: "bg-blue-500", text: "text-blue-400", border: "border-blue-500/50", badge: "bg-blue-500/20 text-blue-300" },
+      GREEN: { label: "🟢 초록팀", short: "초록팀", bg: "bg-emerald-500", text: "text-emerald-400", border: "border-emerald-500/50", badge: "bg-emerald-500/20 text-emerald-300" }
+    };
+
+    function getTodayStr() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    }
+
+    function getMonthsAgoStr(months) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - months);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    let state = {
+      adminPassword: "admin1234",
+      statsPeriod: {
+        startDate: getMonthsAgoStr(3),
+        endDate: getTodayStr()
+      },
+      users: {},
+      groups: {},
+      history: {}
+    };
+
+    let currentTab = "play";
+    let loggedInUserId = null;
+    let selectedModalUserId = null;
+    let adminUnlocked = false;
+    let adminRowsInitialized = false;
+
+    document.getElementById("matchDateInput").value = getTodayStr();
+    document.getElementById("adminStatsStartDate").value = state.statsPeriod.startDate;
+    document.getElementById("adminStatsEndDate").value = state.statsPeriod.endDate;
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add("hidden"), 2600);
+    }
+
+    function shuffle(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    // =========================================================================
+    // Firebase 실시간 동기화 리스너
+    // =========================================================================
+    onValue(ref(db, ".info/connected"), (snap) => {
+      const badge = document.getElementById("dbStatusBadge");
+      if (snap.val() === true) {
+        badge.textContent = "실시간 연동됨";
+        badge.className = "text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full";
+      } else {
+        badge.textContent = "서버 연결 중...";
+        badge.className = "text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full";
+      }
+    });
+
+    onValue(ref(db, "config"), (snap) => {
+      const cfg = snap.val() || {};
+      if (cfg.adminPassword) {
+        state.adminPassword = String(cfg.adminPassword);
+        if (adminUnlocked) {
+          document.getElementById("newAdminPwInput").value = state.adminPassword;
+        }
+      }
+      if (cfg.statsPeriod) {
+        state.statsPeriod = cfg.statsPeriod;
+        document.getElementById("adminStatsStartDate").value = cfg.statsPeriod.startDate || "";
+        document.getElementById("adminStatsEndDate").value = cfg.statsPeriod.endDate || "";
+        if (currentTab === "stats") renderStatsView();
+      }
+    });
+
+    onValue(ref(db, "match"), (snap) => {
+      const val = snap.val() || {};
+      state.users = val.users || {};
+      state.groups = val.groups || {};
+
+      if (loggedInUserId && !state.users[loggedInUserId]) {
+        loggedInUserId = null;
+      }
+
+      if (adminUnlocked && !adminRowsInitialized) {
+        populateAdminRowsFromState();
+        adminRowsInitialized = true;
+      }
+
+      renderActiveTab();
+    }, (err) => {
+      showToast("Firebase 연결 오류: firebaseConfig 설정을 확인하세요.");
+    });
+
+    onValue(ref(db, "history"), (snap) => {
+      state.history = snap.val() || {};
+      if (currentTab === "stats") renderStatsView();
+      if (currentTab === "admin" && adminUnlocked) renderAdminHistory();
+    });
+
+    // 탭 전환
+    function switchTab(tab) {
+      currentTab = tab;
+      const tabs = {
+        play: document.getElementById("navPlayBtn"),
+        stats: document.getElementById("navStatsBtn"),
+        admin: document.getElementById("navAdminBtn")
+      };
+
+      Object.entries(tabs).forEach(([key, btn]) => {
+        btn.className = key === tab
+          ? "py-2 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition"
+          : "py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+      });
+
+      document.getElementById("loginView").classList.add("hidden");
+      document.getElementById("drawView").classList.add("hidden");
+      document.getElementById("statsView").classList.add("hidden");
+      document.getElementById("adminView").classList.add("hidden");
+
+      renderActiveTab();
+    }
+
+    function renderActiveTab() {
+      if (currentTab === "play") {
+        if (loggedInUserId && state.users[loggedInUserId]) {
+          document.getElementById("loginView").classList.add("hidden");
+          document.getElementById("drawView").classList.remove("hidden");
+          renderDrawRoom();
+        } else {
+          document.getElementById("drawView").classList.add("hidden");
+          document.getElementById("loginView").classList.remove("hidden");
+          renderLoginScreen();
+        }
+      } else if (currentTab === "stats") {
+        document.getElementById("statsView").classList.remove("hidden");
+        renderStatsView();
+      } else if (currentTab === "admin") {
+        document.getElementById("adminView").classList.remove("hidden");
+        if (adminUnlocked) {
+          document.getElementById("adminAuthBox").classList.add("hidden");
+          document.getElementById("adminPanel").classList.remove("hidden");
+          renderAdminRoster();
+          renderAdminHistory();
+        }
+      }
+    }
+
+    document.getElementById("navPlayBtn").onclick = () => switchTab("play");
+    document.getElementById("navStatsBtn").onclick = () => switchTab("stats");
+    document.getElementById("navAdminBtn").onclick = () => switchTab("admin");
+
+    // 로그인 명단 (무작위 배열)
+    function renderLoginScreen() {
+      const grid = document.getElementById("rosterGrid");
+      const entries = Object.entries(state.users);
+      document.getElementById("totalAttendeeBadge").textContent = `총 ${entries.length}명`;
+
+      if (entries.length === 0) {
+        grid.innerHTML = `<div class="col-span-3 text-center py-6 text-xs text-slate-500 bg-slate-950 rounded-xl border border-slate-800">
+          등록된 명단이 없습니다. 관리자 탭에서 명단을 등록해 주세요.
+        </div>`;
+      } else {
+        grid.innerHTML = shuffle(entries).map(([uid, u]) => {
+          const done = Boolean(u.pickedColor);
+          return `
+            <button type="button" data-uid="${uid}"
+              class="rosterBtn py-2.5 px-2 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-0.5
+              ${done ? "bg-slate-950 border-slate-800 text-slate-400" : "bg-slate-800/80 border-slate-700 text-white hover:border-emerald-400 active:scale-95"}">
+              <span>${u.name}</span>
+              <span class="text-[10px] ${done ? "text-emerald-400" : "text-slate-400"}">${done ? "배정완료" : "대기중"}</span>
+            </button>
+          `;
+        }).join("");
+
+        grid.querySelectorAll(".rosterBtn").forEach(btn => {
+          btn.onclick = () => openAuthModal(btn.dataset.uid);
+        });
+      }
+
+      renderTeamDashboard("dashboardOnLogin");
+    }
+
+    function openAuthModal(uid) {
+      const user = state.users[uid];
+      if (!user) return;
+      selectedModalUserId = uid;
+      document.getElementById("modalUserName").textContent = user.name;
+      document.getElementById("modalPinInput").value = "";
+      document.getElementById("modalErrorMsg").classList.add("hidden");
+      document.getElementById("authModal").classList.remove("hidden");
+      setTimeout(() => document.getElementById("modalPinInput").focus(), 50);
+    }
+
+    document.getElementById("modalCancelBtn").onclick = () => {
+      document.getElementById("authModal").classList.add("hidden");
+      selectedModalUserId = null;
+    };
+
+    function verifyModalPin() {
+      const input = document.getElementById("modalPinInput").value.trim();
+      const user = state.users[selectedModalUserId];
+      const errEl = document.getElementById("modalErrorMsg");
+      if (!user) return;
+      if (input !== String(user.pin)) {
+        errEl.textContent = "휴대폰 뒷자리 4자리가 일치하지 않습니다.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      loggedInUserId = selectedModalUserId;
+      selectedModalUserId = null;
+      document.getElementById("authModal").classList.add("hidden");
+      switchTab("play");
+    }
+
+    document.getElementById("modalConfirmBtn").onclick = verifyModalPin;
+    document.getElementById("modalPinInput").onkeydown = (e) => { if (e.key === "Enter") verifyModalPin(); };
+
+    // 실시간 팀 현황판 (무작위 배열로 그룹 유추 차단)
+    function renderTeamDashboard(targetId) {
+      const container = document.getElementById(targetId);
+      const users = Object.values(state.users);
+      const teams = { RED: [], BLUE: [], GREEN: [] };
+      const waiting = [];
+
+      users.forEach(u => {
+        if (u.pickedColor && teams[u.pickedColor]) teams[u.pickedColor].push(u.name);
+        else waiting.push(u.name);
+      });
+
+      const targetPerTeam = Math.ceil(users.length / 3) || 0;
+
+      container.innerHTML = `
+        <div class="bg-slate-950 rounded-2xl p-3.5 border border-slate-800 space-y-3">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-extrabold text-slate-200">📊 실시간 팀 구성 현황</h3>
+            <span class="text-[11px] text-slate-400">배정 ${users.length - waiting.length} / ${users.length}명</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            ${Object.entries(TEAM_COLORS).map(([key, info]) => {
+              const members = shuffle(teams[key]);
+              return `
+                <div class="bg-slate-900 rounded-xl p-2.5 border ${info.border}">
+                  <div class="flex justify-between items-center pb-1.5 mb-1.5 border-b border-slate-800">
+                    <span class="text-xs font-extrabold ${info.text}">${info.short}</span>
+                    <span class="text-[10px] text-slate-400">${members.length}/${targetPerTeam}</span>
+                  </div>
+                  <ul class="space-y-1 text-xs text-slate-200 min-h-[48px]">
+                    ${members.length ? members.map(name => `<li class="truncate">• ${name}</li>`).join("") : `<li class="text-slate-600 text-[11px]">대기중</li>`}
+                  </ul>
+                </div>
+              `;
+            }).join("")}
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] text-slate-400 font-semibold mr-1">⏳ 미배정(${waiting.length}):</span>
+            ${waiting.length
+              ? shuffle(waiting).map(name => `<span class="text-[11px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded-md border border-slate-800">${name}</span>`).join("")
+              : `<span class="text-[11px] text-emerald-400 font-bold">전원 팀 배정 완료!</span>`}
+          </div>
+        </div>
+      `;
+    }
+
+    // 공 뽑기방 (Firebase 트랜잭션으로 동시 선택 중복 원천 차단)
+    document.getElementById("logoutBtn").onclick = () => {
+      loggedInUserId = null;
+      switchTab("play");
+    };
+
+    function renderDrawRoom() {
+      const me = state.users[loggedInUserId];
+      if (!me) return;
+      document.getElementById("drawUserName").textContent = `${me.name}님`;
+
+      const slots = state.groups[me.group]?.slots || {};
+      const container = document.getElementById("ballsContainer");
+      const resultBanner = document.getElementById("myResultBanner");
+      const resultTeam = document.getElementById("myResultTeam");
+      const instruction = document.getElementById("drawInstruction");
+
+      if (me.pickedColor) {
+        const info = TEAM_COLORS[me.pickedColor];
+        instruction.textContent = "팀 배정이 완료되었습니다!";
+        resultBanner.classList.remove("hidden");
+        resultTeam.textContent = info.label;
+        resultTeam.className = `text-2xl font-black mt-1 ${info.text}`;
+      } else {
+        instruction.textContent = "3개의 공 중 하나를 터치하세요";
+        resultBanner.classList.add("hidden");
+      }
+
+      container.innerHTML = [0, 1, 2].map(idx => {
+        const slot = slots[idx] || { color: "RED", takenBy: null };
+        const isTaken = Boolean(slot.takenBy);
+        const isMine = slot.takenBy === loggedInUserId;
+
+        if (isMine) {
+          const info = TEAM_COLORS[slot.color];
+          return `
+            <button disabled class="aspect-square rounded-2xl border-2 ${info.border} ${info.bg} text-slate-950 flex flex-col items-center justify-center p-2 shadow-lg">
+              <span class="text-xs font-extrabold">내 선택</span>
+              <span class="text-sm font-black mt-0.5">${info.short}</span>
+            </button>
+          `;
+        }
+        if (isTaken) {
+          return `
+            <button disabled class="aspect-square rounded-2xl border border-slate-800 bg-slate-950 text-slate-500 flex flex-col items-center justify-center p-2 opacity-75">
+              <span class="text-xl">🔒</span>
+              <span class="text-[11px] font-bold mt-1">선택 완료</span>
+              <span class="text-[10px] text-slate-600">마감됨</span>
+            </button>
+          `;
+        }
+        return `
+          <button type="button" data-slot="${idx}" ${me.pickedColor ? "disabled" : ""}
+            class="pickBallBtn aspect-square rounded-2xl border-2 border-slate-700 bg-gradient-to-br from-slate-800 to-slate-950 hover:border-emerald-400 active:scale-95 transition flex flex-col items-center justify-center p-2 shadow-xl ${me.pickedColor ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}">
+            <span class="text-3xl">⚽</span>
+            <span class="text-xs font-bold text-slate-300 mt-1.5">${idx + 1}번 공</span>
+          </button>
+        `;
+      }).join("");
+
+      container.querySelectorAll(".pickBallBtn").forEach(btn => {
+        btn.onclick = async () => {
+          const idx = Number(btn.dataset.slot);
+          const slotRef = ref(db, `match/groups/${me.group}/slots/${idx}`);
+          let chosenColor = null;
+
+          const { committed } = await runTransaction(slotRef, (currentSlot) => {
+            if (!currentSlot) return currentSlot;
+            if (currentSlot.takenBy) return;
+            currentSlot.takenBy = loggedInUserId;
+            chosenColor = currentSlot.color;
+            return currentSlot;
+          });
+
+          if (committed && chosenColor) {
+            await set(ref(db, `match/users/${loggedInUserId}/pickedColor`), chosenColor);
+            showToast(`${TEAM_COLORS[chosenColor].label}으로 배정되었습니다!`);
+          } else {
+            showToast("방금 다른 회원이 먼저 선택한 공입니다. 다른 공을 눌러주세요!");
+          }
+        };
+      });
+
+      renderTeamDashboard("dashboardOnDraw");
+    }
+
+    // 기간별 통계 화면 렌더링 (관리자가 설정한 조회 기간 기준)
+    document.getElementById("statsSortSelect").onchange = renderStatsView;
+
+    function renderStatsView() {
+      const startDate = state.statsPeriod.startDate || "2000-01-01";
+      const endDate = state.statsPeriod.endDate || "2099-12-31";
+      const sortBy = document.getElementById("statsSortSelect").value;
+
+      document.getElementById("publicStatsPeriodText").textContent = `${startDate} ~ ${endDate}`;
+
+      const records = Object.entries(state.history)
+        .filter(([date]) => date >= startDate && date <= endDate)
+        .sort((a, b) => b[0].localeCompare(a[0]));
+
+      document.getElementById("statsMatchCountText").textContent = `총 ${records.length}경기`;
+
+      const statsMap = {};
+      Object.values(state.users).forEach(u => {
+        const key = `${u.name}_${u.pin}`;
+        statsMap[key] = { name: u.name, pin: u.pin, attendance: 0, wins: 0 };
+      });
+
+      records.forEach(([, match]) => {
+        (match.attendees || []).forEach(p => {
+          const key = `${p.name}_${p.pin || ""}`;
+          if (!statsMap[key]) statsMap[key] = { name: p.name, pin: p.pin || "", attendance: 0, wins: 0 };
+          statsMap[key].attendance += 1;
+          if (p.won) statsMap[key].wins += 1;
+        });
+      });
+
+      const list = Object.values(statsMap).map(item => ({
+        ...item,
+        rate: item.attendance > 0 ? Math.round((item.wins / item.attendance) * 100) : 0
+      }));
+
+      const topAttendance = [...list]
+        .filter(x => x.attendance > 0)
+        .sort((a, b) => b.attendance - a.attendance || b.wins - a.wins)
+        .slice(0, 3);
+
+      document.getElementById("attendanceTopList").innerHTML = topAttendance.length
+        ? topAttendance.map((p, i) => `
+            <div class="flex justify-between items-center bg-slate-900/80 px-2 py-1 rounded">
+              <span class="font-bold text-slate-200">${i + 1}위 ${p.name}</span>
+              <span class="text-amber-400 font-extrabold">${p.attendance}회</span>
+            </div>
+          `).join("")
+        : `<p class="text-[11px] text-slate-500">기록 없음</p>`;
+
+      const topWins = [...list]
+        .filter(x => x.wins > 0)
+        .sort((a, b) => b.wins - a.wins || b.rate - a.rate || b.attendance - a.attendance)
+        .slice(0, 3);
+
+      document.getElementById("winsTopList").innerHTML = topWins.length
+        ? topWins.map((p, i) => `
+            <div class="flex justify-between items-center bg-slate-900/80 px-2 py-1 rounded">
+              <span class="font-bold text-slate-200">${i + 1}위 ${p.name}</span>
+              <span class="text-emerald-400 font-extrabold">${p.wins}승</span>
+            </div>
+          `).join("")
+        : `<p class="text-[11px] text-slate-500">기록 없음</p>`;
+
+      const sortedList = [...list].sort((a, b) => {
+        if (sortBy === "attendance") return b.attendance - a.attendance || b.wins - a.wins;
+        if (sortBy === "rate") return b.rate - a.rate || b.wins - a.wins;
+        return b.wins - a.wins || b.attendance - a.attendance;
+      });
+
+      document.getElementById("statsTableBody").innerHTML = sortedList.length
+        ? sortedList.map((p, idx) => `
+            <tr class="hover:bg-slate-900/50">
+              <td class="py-2 px-3 font-bold text-slate-400">${idx + 1}</td>
+              <td class="py-2 px-2 font-bold text-white">${p.name}</td>
+              <td class="py-2 px-2 text-center text-amber-300 font-semibold">${p.attendance}회</td>
+              <td class="py-2 px-2 text-center text-emerald-400 font-bold">${p.wins}승</td>
+              <td class="py-2 px-3 text-right text-slate-300">${p.rate}%</td>
+            </tr>
+          `).join("")
+        : `<tr><td colspan="5" class="py-6 text-center text-slate-500">데이터가 없습니다.</td></tr>`;
+
+      const historyListEl = document.getElementById("matchHistoryList");
+      historyListEl.innerHTML = records.length
+        ? records.map(([date, match]) => {
+            const winInfo = TEAM_COLORS[match.winningTeam] || { label: match.winningTeam, badge: "bg-slate-800 text-slate-300" };
+            const winners = (match.attendees || []).filter(a => a.won).map(a => a.name).join(", ");
+            return `
+              <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                <div class="flex justify-between items-center">
+                  <span class="font-bold text-slate-200">${date} (참석 ${(match.attendees || []).length}명)</span>
+                  <span class="text-[11px] px-2 py-0.5 rounded font-bold ${winInfo.badge}">${winInfo.label}</span>
+                </div>
+                <p class="text-[11px] text-slate-400">승리 멤버: ${winners || "-"}</p>
+              </div>
+            `;
+          }).join("")
+        : `<p class="text-slate-500 text-center py-3">기록된 경기 이력이 없습니다.</p>`;
+    }
+
+    // 관리자 모드
+    function isValidAdminPassword(pw) {
+      return pw.length >= 8 && /[a-zA-Z]/.test(pw);
+    }
+
+    document.getElementById("adminAuthBtn").onclick = () => {
+      if (document.getElementById("adminPinInput").value.trim() === state.adminPassword) {
+        adminUnlocked = true;
+        document.getElementById("adminAuthBox").classList.add("hidden");
+        document.getElementById("adminPanel").classList.remove("hidden");
+        document.getElementById("newAdminPwInput").value = state.adminPassword;
+        document.getElementById("adminStatsStartDate").value = state.statsPeriod.startDate;
+        document.getElementById("adminStatsEndDate").value = state.statsPeriod.endDate;
+        populateAdminRowsFromState();
+        adminRowsInitialized = true;
+        renderAdminRoster();
+        renderAdminHistory();
+      } else {
+        showToast("관리자 비밀번호가 일치하지 않습니다.");
+      }
+    };
+
+    document.getElementById("saveAdminPwBtn").onclick = async () => {
+      const nextPw = document.getElementById("newAdminPwInput").value.trim();
+      if (!isValidAdminPassword(nextPw)) {
+        return showToast("비밀번호는 영문 문자를 포함해 8자리 이상이어야 합니다.");
+      }
+      await set(ref(db, "config/adminPassword"), nextPw);
+      showToast("관리자 비밀번호(PW)가 저장되었습니다.");
+    };
+
+    document.querySelectorAll(".rangePresetBtn").forEach(btn => {
+      btn.onclick = () => {
+        const range = btn.dataset.range;
+        const end = getTodayStr();
+        let start = "2020-01-01";
+        if (range === "1m") start = getMonthsAgoStr(1);
+        if (range === "3m") start = getMonthsAgoStr(3);
+        document.getElementById("adminStatsStartDate").value = start;
+        document.getElementById("adminStatsEndDate").value = end;
+      };
+    });
+
+    document.getElementById("saveStatsPeriodBtn").onclick = async () => {
+      const start = document.getElementById("adminStatsStartDate").value;
+      const end = document.getElementById("adminStatsEndDate").value;
+      if (!start || !end) return showToast("시작일과 종료일을 모두 선택해 주세요.");
+      if (start > end) return showToast("시작일이 종료일보다 늦을 수 없습니다.");
+
+      await set(ref(db, "config/statsPeriod"), { startDate: start, endDate: end });
+      showToast(`회원 공개 조회 기간이 [${start} ~ ${end}]로 적용되었습니다.`);
+    };
+
+    function addAttendeeRow(group = "", name = "", pin = "") {
+      const container = document.getElementById("attendeeRowsContainer");
+      const row = document.createElement("div");
+      row.className = "attendee-row grid grid-cols-12 gap-1.5 items-center";
+      row.innerHTML = `
+        <input type="text" placeholder="예: 1그룹" value="${group}"
+          class="row-group col-span-4 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white" />
+        <input type="text" placeholder="이름" value="${name}"
+          class="row-name col-span-4 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white" />
+        <input type="text" inputmode="numeric" maxlength="4" placeholder="뒷4자리" value="${pin}"
+          class="row-pin col-span-3 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-center text-white" />
+        <button type="button" class="remove-row-btn col-span-1 text-slate-500 hover:text-rose-400 font-bold text-sm">✕</button>
+      `;
+      row.querySelector(".remove-row-btn").onclick = () => row.remove();
+      container.appendChild(row);
+    }
+
+    document.getElementById("addRowBtn").onclick = () => {
+      const rows = document.querySelectorAll(".attendee-row");
+      const lastGroup = rows.length ? rows[rows.length - 1].querySelector(".row-group").value : "1그룹";
+      addAttendeeRow(lastGroup, "", "");
+    };
+
+    function populateAdminRowsFromState() {
+      const container = document.getElementById("attendeeRowsContainer");
+      container.innerHTML = "";
+      const entries = Object.values(state.users);
+      if (entries.length === 0) {
+        addAttendeeRow("1그룹", "", "");
+        addAttendeeRow("1그룹", "", "");
+        addAttendeeRow("1그룹", "", "");
+      } else {
+        entries
+          .sort((a, b) => a.group.localeCompare(b.group))
+          .forEach(u => addAttendeeRow(u.group, u.name, u.pin));
+      }
+    }
+
+    document.getElementById("saveSetupBtn").onclick = async () => {
+      const rows = document.querySelectorAll(".attendee-row");
+      const users = {};
+      const groupMembers = {};
+      let idx = 1;
+
+      for (const row of rows) {
+        const group = row.querySelector(".row-group").value.trim();
+        const name = row.querySelector(".row-name").value.trim();
+        const pin = row.querySelector(".row-pin").value.replace(/[^0-9]/g, "").slice(-4);
+        if (!group && !name && !pin) continue;
+        if (!group || !name || pin.length !== 4) {
+          return showToast("그룹명, 이름, 뒷자리 4자리를 정확히 입력해 주세요.");
+        }
+        const uid = `u_${Date.now()}_${idx++}`;
+        users[uid] = { name, group, pin, pickedColor: null };
+        if (!groupMembers[group]) groupMembers[group] = [];
+        groupMembers[group].push(uid);
+      }
+
+      if (Object.keys(users).length === 0) {
+        return showToast("최소 1명 이상의 참석자를 입력해 주세요.");
+      }
+
+      const groups = {};
+      for (const [gName, members] of Object.entries(groupMembers)) {
+        if (members.length > 3) return showToast(`[${gName}]는 최대 3명까지 가능합니다.`);
+        const colors = shuffle(["RED", "BLUE", "GREEN"]);
+        groups[gName] = {
+          slots: {
+            0: { color: colors[0], takenBy: null },
+            1: { color: colors[1], takenBy: null },
+            2: { color: colors[2], takenBy: null }
+          }
+        };
+      }
+
+      await set(ref(db, "match"), { users, groups });
+      loggedInUserId = null;
+      showToast("새 게임이 생성되어 실시간 반영되었습니다!");
+    };
+
+    function renderAdminRoster() {
+      const listEl = document.getElementById("adminRosterList");
+      const entries = Object.entries(state.users);
+      if (entries.length === 0) {
+        listEl.innerHTML = `<p class="text-slate-500 text-center py-2">등록된 인원이 없습니다.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = entries
+        .sort((a, b) => a[1].group.localeCompare(b[1].group))
+        .map(([uid, u]) => `
+          <div class="flex justify-between items-center bg-slate-900 px-3 py-2 rounded-lg border border-slate-800">
+            <div>
+              <span class="text-[11px] text-slate-400 mr-1.5">[${u.group}]</span>
+              <span class="font-bold text-white">${u.name}</span>
+              <span class="text-[11px] text-slate-500 ml-1">(${u.pin})</span>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span class="text-[11px] font-bold ${u.pickedColor ? TEAM_COLORS[u.pickedColor].text : "text-slate-500"}">
+                ${u.pickedColor ? TEAM_COLORS[u.pickedColor].short : "미배정"}
+              </span>
+              <button type="button" data-deluid="${uid}" class="absentDelBtn bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[11px] font-bold">
+                불참 삭제
+              </button>
+            </div>
+          </div>
+        `).join("");
+
+      listEl.querySelectorAll(".absentDelBtn").forEach(btn => {
+        btn.onclick = async () => {
+          const uid = btn.dataset.deluid;
+          const target = state.users[uid];
+          if (!target) return;
+          const slots = state.groups[target.group]?.slots;
+          if (slots) {
+            for (const i of [0, 1, 2]) {
+              if (slots[i]?.takenBy === uid) {
+                await set(ref(db, `match/groups/${target.group}/slots/${i}/takenBy`), null);
+              }
+            }
+          }
+          await remove(ref(db, `match/users/${uid}`));
+          populateAdminRowsFromState();
+          showToast(`${target.name}님이 명단에서 제외되었습니다.`);
+        };
+      });
+    }
+
+    function renderAdminHistory() {
+      const listEl = document.getElementById("adminHistoryList");
+      const countEl = document.getElementById("adminHistoryCount");
+      const records = Object.entries(state.history).sort((a, b) => b[0].localeCompare(a[0]));
+      countEl.textContent = `총 ${records.length}경기`;
+
+      if (!records.length) {
+        listEl.innerHTML = `<p class="text-slate-500 text-center py-3">저장된 경기 이력이 없습니다.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = records.map(([date, match]) => {
+        const winInfo = TEAM_COLORS[match.winningTeam] || { label: match.winningTeam, badge: "bg-slate-800 text-slate-300" };
+        const winners = (match.attendees || []).filter(a => a.won).map(a => a.name).join(", ");
+        const allNames = (match.attendees || []).map(a => a.name).join(", ");
+        return `
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1.5">
+            <div class="flex justify-between items-center">
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-white">${date}</span>
+                <span class="text-[11px] px-2 py-0.5 rounded font-bold ${winInfo.badge}">${winInfo.label}</span>
+              </div>
+              <button type="button" data-deldate="${date}" class="adminDelHistoryBtn bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[11px] font-bold">
+                이력 삭제
+              </button>
+            </div>
+            <p class="text-[11px] text-emerald-300">🏆 승리(${(match.attendees || []).filter(a => a.won).length}명): ${winners || "-"}</p>
+            <p class="text-[11px] text-slate-400">👥 참석(${(match.attendees || []).length}명): ${allNames || "-"}</p>
+          </div>
+        `;
+      }).join("");
+
+      listEl.querySelectorAll(".adminDelHistoryBtn").forEach(btn => {
+        btn.onclick = async () => {
+          const d = btn.dataset.deldate;
+          await remove(ref(db, `history/${d}`));
+          showToast(`${d} 경기 이력이 삭제되었습니다.`);
+        };
+      });
+    }
+
+    // 미참여자 일괄 자동 배정
+    document.getElementById("autoAssignBtn").onclick = async () => {
+      const updates = {};
+      let count = 0;
+      const byGroup = {};
+      Object.entries(state.users).forEach(([uid, u]) => {
+        if (!u.pickedColor) {
+          if (!byGroup[u.group]) byGroup[u.group] = [];
+          byGroup[u.group].push(uid);
+        }
+      });
+
+      Object.entries(byGroup).forEach(([gName, uids]) => {
+        const slots = state.groups[gName]?.slots;
+        if (!slots) return;
+        const free = shuffle([0, 1, 2].filter(i => !slots[i]?.takenBy));
+        uids.forEach((uid, idx) => {
+          const sIdx = free[idx];
+          if (sIdx !== undefined) {
+            updates[`match/groups/${gName}/slots/${sIdx}/takenBy`] = uid;
+            updates[`match/users/${uid}/pickedColor`] = slots[sIdx].color;
+            count++;
+          }
+        });
+      });
+
+      if (!count) return showToast("미참여 대기 인원이 없습니다.");
+      await update(ref(db), updates);
+      showToast(`미참여자 ${count}명 자동 배정 완료!`);
+    };
+
+    // 경기 결과 확정 및 기록 누적
+    document.querySelectorAll(".recordWinBtn").forEach(btn => {
+      btn.onclick = async () => {
+        const winningTeam = btn.dataset.win;
+        const matchDate = document.getElementById("matchDateInput").value;
+        if (!matchDate) return showToast("경기 날짜를 선택해 주세요.");
+
+        const usersList = Object.values(state.users);
+        if (!usersList.length) return showToast("등록된 참석자가 없습니다.");
+
+        await set(ref(db, `history/${matchDate}`), {
+          winningTeam,
+          savedAt: Date.now(),
+          attendees: usersList.map(u => ({
+            name: u.name,
+            pin: u.pin,
+            team: u.pickedColor || "NONE",
+            won: u.pickedColor === winningTeam
+          }))
+        });
+
+        showToast(`${matchDate} [${TEAM_COLORS[winningTeam].short} 승리] 기록이 누적되었습니다!`);
+      };
+    });
+
+    renderLoginScreen();
+  </script>
+</body>
+</html>
